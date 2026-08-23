@@ -1,0 +1,8 @@
+# Binaries and build artifacts
+opensnoop
+*.bpf.o
+*.skel.h
+
+# Editor and compiler databases
+compile_commands.json
+.cache/

@@ -1,0 +1,19 @@
+CompileFlags:
+  Add:
+    - -m64
+
+---
+If:
+  PathMatch: .*\.bpf\.c$
+
+CompileFlags:
+  Add:
+    - -target
+    - bpf
+    - -O2
+    - -g
+    - -D__TARGET_ARCH_x86
+  Remove:
+    - -m32
+    - -m64
+    - -march=*
