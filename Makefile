@@ -3,6 +3,8 @@ APPS = opensnoop
 CLANG ?= clang
 BPFTOOL ?= bpftool
 ARCH ?= $(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/')
+INI_CFLAGS := $(shell pkg-config --cflags inih)
+INI_LIBS := $(shell pkg-config --libs inih)
 
 all: $(APPS)
 
@@ -13,7 +15,9 @@ all: $(APPS)
 	$(BPFTOOL) gen skeleton $< > $@
 
 opensnoop: opensnoop.c opensnoop.skel.h
-	$(CC) -g -O2 opensnoop.c -o opensnoop -lbpf -lelf -lz
+	$(CC) -g -O2 $(INI_CFLAGS) \
+		opensnoop.c -o opensnoop \
+		-lbpf -lelf -lz $(INI_LIBS)
 
 clean:
 	rm -f *.bpf.o *.skel.h $(APPS)
