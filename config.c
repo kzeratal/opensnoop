@@ -8,7 +8,7 @@
 #include <ini.h>
 
 static bool executable_exists(const struct opensnoop_config *config, const char *value) {
-	for (size_t i = 0; i < config->include_counts; i++) {
+	for (size_t i = 0; i < config->include_count; i++) {
 		if (strcmp(config->includes[i].value, value) == 0) {
 			return true;
 		}
@@ -18,7 +18,7 @@ static bool executable_exists(const struct opensnoop_config *config, const char 
 }
 
 static int extend_include_capacity(struct opensnoop_config *config) {
-	if (config->include_counts < config->include_capacity) {
+	if (config->include_count < config->include_capacity) {
 		return 0;
 	}
 
@@ -59,10 +59,10 @@ static int add_executable(struct opensnoop_config *config, const char *value) {
 		return -1;
 	}
 
-	struct executable_name *entry = &config->includes[config->include_counts];
+	struct executable_name *entry = &config->includes[config->include_count];
 	memset(entry, 0, sizeof(*entry));
 	memcpy(entry->value, value, length);
-	config->include_counts++;
+	config->include_count++;
 
 	return 0;
 }
@@ -91,7 +91,7 @@ void config_destroy(struct opensnoop_config *config) {
 	free(config->includes);
 
 	config->includes = NULL;
-	config->include_counts = 0;
+	config->include_count = 0;
 	config->include_capacity = 0;
 }
 
@@ -110,7 +110,7 @@ int config_load(const char *path, struct opensnoop_config *config) {
 		return -1;
 	}
 
-	if (temp_config.include_counts == 0) {
+	if (temp_config.include_count == 0) {
 		fprintf(stderr, "No executables configured in %s\n", path);
 		config_destroy(&temp_config);
 		return -1;

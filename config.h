@@ -12,7 +12,7 @@ struct executable_name {
 
 struct opensnoop_config {
     struct executable_name *includes;
-    size_t include_counts;
+    size_t include_count;
     size_t include_capacity;
 };
 
