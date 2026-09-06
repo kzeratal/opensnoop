@@ -7,13 +7,13 @@
 #define MAXIMUM_INCLUDE_ENTRIES 256
 
 struct executable_name {
-    char value[EXECUTABLE_NAME_LENGTH];
+	char value[EXECUTABLE_NAME_LENGTH];
 };
 
 struct opensnoop_config {
-    struct executable_name *includes;
-    size_t include_count;
-    size_t include_capacity;
+	struct executable_name *includes;
+	size_t include_count;
+	size_t include_capacity;
 };
 
 int config_load(const char *path, struct opensnoop_config *config);

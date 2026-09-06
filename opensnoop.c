@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,6 +7,7 @@
 #include <bpf/libbpf.h>
 
 #include "config.h"
+#include "opensnoop.h"
 #include "opensnoop.skel.h"
 
 static volatile sig_atomic_t stop = 0;
@@ -36,23 +38,41 @@ static int populate_include_map(struct opensnoop_bpf *skel, const struct opensno
 	return 0;
 }
 
+static int handle_event(void *ctx, void *data, size_t data_sz) {
+	(void)ctx;
+
+	const struct event *e = data;
+
+	if (data_sz < sizeof(*e)) {
+		fprintf(stderr, "Received incomplete event\n");
+		return 0;
+	}
+
+	printf("%s attempts to open %s\n", e->command, e->filename);
+	return 0;
+}
+
 int main(void) {
+	struct opensnoop_config config = {0};
+	struct opensnoop_bpf *skel = NULL;
+	struct ring_buffer *rb = NULL;
+	int err = 0;
+
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 
-	struct opensnoop_config config = {0};
 	if (config_load("opensnoop.ini", &config) != 0) {
-		return 1;
+		goto cleanup;
 	}
 
-	struct opensnoop_bpf *skel = opensnoop_bpf__open();
+	skel = opensnoop_bpf__open();
 	if (!skel) {
-		fprintf(stderr, "Failed to open BPF skeleton\n");
-		config_destroy(&config);
-		return 1;
+		err = errno ? -errno : -1;
+		fprintf(stderr, "Failed to open BPF skeleton: %s (%d)\n", strerror(-err), err);
+		goto cleanup;
 	}
 
-	int err = bpf_map__set_max_entries(skel->maps.included_executables, (__u32)config.include_count);
+	err = bpf_map__set_max_entries(skel->maps.included_executables, (__u32)config.include_count);
 	if (err < 0) {
 		fprintf(stderr, "Failed to set map capacity to %zu: %s (%d)\n", config.include_count, strerror(-err), err);
 		goto cleanup;
@@ -69,19 +89,48 @@ int main(void) {
 		goto cleanup;
 	}
 
+	int fd = bpf_map__fd(skel->maps.ring_buffer);
+	if (fd < 0) {
+		err = fd;
+		fprintf(stderr, "Failed to get ring buffer map fd: %s (%d)\n", strerror(-err), err);
+		goto cleanup;
+	}
+
+	rb = ring_buffer__new(fd, handle_event, NULL, NULL);
+	if (!rb) {
+		err = -errno;
+		fprintf(stderr, "Failed to create a ring buffer: %s (%d)\n", strerror(-err), err);
+		goto cleanup;
+	}
+
 	err = opensnoop_bpf__attach(skel);
 	if (err < 0) {
 		fprintf(stderr, "Failed to attach BPF skeleton program: %s (%d)\n", strerror(-err), err);
 		goto cleanup;
 	}
 
-	printf("Tracing file openings with Skeleton! Run 'sudo cat /sys/kernel/debug/tracing/trace_pipe' to view.\n");
-
 	while (!stop) {
-		sleep(1);
+		int ret = ring_buffer__poll(rb, 100);
+
+		if (ret == -EINTR) {
+			continue;
+		}
+
+		if (ret < 0) {
+			err = ret;
+			fprintf(stderr, "Error polling ring buffer: %s (%d)\n", strerror(-err), err);
+			break;
+		}
 	}
+
 cleanup:
-	opensnoop_bpf__destroy(skel);
+	if (rb) {
+		ring_buffer__free(rb);
+	}
+	if (skel) {
+		opensnoop_bpf__destroy(skel);
+	}
+
 	config_destroy(&config);
 	return err ? 1 : 0;
 }
