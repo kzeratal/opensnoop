@@ -6,3 +6,6 @@ opensnoop
 # Editor and compiler databases
 compile_commands.json
 .cache/
+
+# Executable include filters config
+opensnoop.ini

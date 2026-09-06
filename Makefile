@@ -16,7 +16,7 @@ all: $(APPS)
 
 opensnoop: opensnoop.c opensnoop.skel.h
 	$(CC) -g -O2 $(INI_CFLAGS) \
-		opensnoop.c -o opensnoop \
+		opensnoop.c config.c -o opensnoop \
 		-lbpf -lelf -lz $(INI_LIBS)
 
 clean:
